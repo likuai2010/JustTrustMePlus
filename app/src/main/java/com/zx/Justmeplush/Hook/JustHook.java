@@ -108,7 +108,7 @@ public class JustHook implements IXposedHookLoadPackage {
             return;
         } else {
             if (lpparam.packageName.equals(InvokPackage)) {
-                CLogUtils.e("找到 包名  ");
+                CLogUtils.e("找到 包名  " + InvokPackage);
                 HookAttach();
             }
         }
@@ -140,7 +140,11 @@ public class JustHook implements IXposedHookLoadPackage {
                         if (flag == 0) {
                             //在 oncteate的 执行完毕 这个时候 壳的 类以及初始化 完毕了
                             getAllClassName();
-                            GetJustMePlushHook();
+                            try{
+                                GetJustMePlushHook();
+                            }catch (NoClassDefFoundError e){
+                                e.printStackTrace();
+                            }
                             //防止 加壳的 app 做了混淆 在 onCreate 执行结束 在进行 挂钩
                             processOkHttp(mLoader);
                             processHttpClientAndroidLib(mLoader);
@@ -279,6 +283,7 @@ public class JustHook implements IXposedHookLoadPackage {
                             CertificatePinnerClass,
                             new XC_MethodReplacement() {
                                 protected Object replaceHookedMethod(MethodHookParam methodHookParam) throws Throwable {
+
                                     return null;
                                 }
                             });
@@ -447,16 +452,21 @@ public class JustHook implements IXposedHookLoadPackage {
 //            @Nullable
 //            private final CertificateChainCleaner certificateChainCleaner;
 
+
         //本身是 final类型  三个变量 都是final类型
         //两个是 private 一个是 pubulic
+
+        CLogUtils.e("getPine   mClassList size " + mClassList.size());
         // 有一个遍历的类型是 set
         for (Class mClass : mClassList) {
+
             int privateCount = 0;
             int publicCount = 0;
             int SetTypeCount = 0;
 
             Field[] declaredFields = mClass.getDeclaredFields();
             //长度 是 3 本身是 final类型
+
             if (declaredFields.length == 3 && Modifier.isFinal(mClass.getModifiers())) {
                 for (Field field : declaredFields) {
                     //私有 并且是 final类型
@@ -475,6 +485,24 @@ public class JustHook implements IXposedHookLoadPackage {
                 }
             }
         }
+        // 新版本的pin
+        for (Class mClass : mClassList) {
+            if (mClass.getName().contains("CertificatePinner")) {
+                CLogUtils.e("找到Class " + mClass.getName());
+                Field[] declaredFields = mClass.getDeclaredFields();
+                CLogUtils.e("declaredFields " + declaredFields.length);
+                if(declaredFields.length == 4 && Modifier.isFinal(mClass.getModifiers())){
+                    for (Field field : declaredFields) {
+                        if(field.getName().equals("pins")){
+                            return mClass;
+                        }
+                    }
+                }
+            }
+        }
+
+
+
         return null;
     }
 
@@ -991,6 +1019,9 @@ public class JustHook implements IXposedHookLoadPackage {
 
     private void getDexFileClassName(DexFile dexFile) {
         //获取df中的元素  这里包含了所有可执行的类名 该类名包含了包名+类名的方式
+        if(dexFile == null){
+            return;
+        }
         Enumeration<String> enumeration = dexFile.entries();
         while (enumeration.hasMoreElements()) {//遍历
             String className = enumeration.nextElement();
